@@ -1,0 +1,11 @@
+body div#related {
+  display: none;
+}
+
+body ytd-comments#comments {
+  display: none;
+}
+
+/* body ytd-page-manager#page-manager {
+  visibility: hidden;
+} */
