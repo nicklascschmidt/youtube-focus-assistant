@@ -10,6 +10,7 @@
     "128": "images/icon-128.png"
   },
   "action": {
+    "default_title": "Toggle YouTube Focus Assistant",
     "default_icon": {
       "16": "images/icon-16.png",
       "32": "images/icon-32.png",
@@ -21,7 +22,7 @@
     "service_worker": "scripts/background.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "commands": {
     "_execute_action": {
       "suggested_key": {
@@ -29,11 +30,5 @@
         "mac": "Command+Shift+F"
       }
     }
-  },
-  "content_scripts": [
-    {
-      "js": ["scripts/content.js"],
-      "matches": ["https://www.youtube.com/*"]
-    }
-  ]
+  }
 }
