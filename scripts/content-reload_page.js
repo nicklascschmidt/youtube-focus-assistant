@@ -3,5 +3,5 @@
 (() => {
   console.log('DISABLED - initiating content reload script');
 
-  // window.location.reload();
+  window.location.reload();
 })();
