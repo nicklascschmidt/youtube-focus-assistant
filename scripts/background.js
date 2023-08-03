@@ -3,39 +3,6 @@ const COLOR_BLUE = 'rgba(0, 0, 255, 1)';
 const COLOR_RED = 'rgba(255, 0, 0, 1)';
 const YOUTUBE_VIDEO_URL = 'https://www.youtube.com';
 
-const unregisterAllDynamicContentScripts = async () => {
-  try {
-    console.log(1);
-    const scripts = await chrome.scripting.getRegisteredContentScripts();
-    console.log(2, scripts);
-    const scriptIds = scripts.map((script) => script.id);
-    console.log(3, scriptIds);
-    return scriptIds.length > 0 && chrome.scripting.unregisterContentScripts(scriptIds);
-  } catch (error) {
-    const message = 'An unexpected error occurred while unregistering dynamic content scripts.';
-    throw new Error(message, {cause: error});
-  }
-};
-
-const getCurrentTab = async () => {
-  return await chrome.tabs.query({active: true, lastFocusedWindow: true});
-};
-
-// When extension is switched to inactive, remove the content scripts and reload the page.
-const runExtensionScriptsCleanup = async (tabId) => {
-  console.log('run cleanup');
-  // await unregisterAllDynamicContentScripts();
-  await chrome.scripting.removeCSS({
-    files: ['youtube-focus-assistant.css'],
-    target: {tabId},
-  });
-  // Reload helps reset the styles we adjusted with the content scripts
-  // await chrome.scripting.executeScript({
-  //   files: ['scripts/content-reload_page.js'],
-  //   target: {tabId: currentTabId},
-  // });
-};
-
 // On load and when badge is clicked
 // - Switch the text displayed on the extension badge
 // - Set the background color
@@ -48,23 +15,59 @@ const handleBadgeAndStorageUpdate = async (nextIsActiveState) => {
   await chrome.storage.sync.set({isExtensionActive: nextIsActiveState});
 };
 
-// When clicked or on load, retrieve the extension active state from storage,
-// then run extension scripts.
-const runExtensionScripts = async (tabId, nextIsActiveState) => {
-  if (nextIsActiveState) {
+// When activated, inject the CSS file and note that we've injected in.
+// NOTE: if we inject it twice and remove it once, the first CSS file will still be honored.
+const insertCssAndUpdateStorage = async (tabId) => {
+  const storageItems = await chrome.storage.sync.get();
+  if (!storageItems.tabsWithCssInjected[tabId]) {
     await chrome.scripting.insertCSS({
       files: ['youtube-focus-assistant.css'],
       target: {tabId},
     });
-    await chrome.scripting.executeScript({
-      files: [
-        'scripts/content-autoplay.js',
-        'scripts/content-miniplayer.js',
-        'scripts/content-end_mode.js',
-      ],
+    const nextTabsWithCssInjected = {...storageItems.isCssInjected, [tabId]: true};
+    await chrome.storage.sync.set({tabsWithCssInjected: nextTabsWithCssInjected});
+  }
+};
+
+// During cleanup, remove the CSS file and clear out the tab ID from storage.
+const removeCssAndUpdateStorage = async (tabId) => {
+  const storageItems = await chrome.storage.sync.get();
+  if (storageItems.tabsWithCssInjected[tabId]) {
+    await chrome.scripting.removeCSS({
+      files: ['youtube-focus-assistant.css'],
       target: {tabId},
     });
+    const {[tabId]: _, ...remainingTabIds} = storageItems.tabsWithCssInjected;
+    await chrome.storage.sync.set({tabsWithCssInjected: remainingTabIds});
   }
+};
+
+// When extension is switched to inactive, remove the content scripts and reload the page.
+const runExtensionScriptsCleanup = async (tabId) => {
+  console.log('run cleanup');
+
+  // Clear mutation observers and reverse style updates
+  await chrome.tabs.sendMessage(tabId, {shouldCleanup: true});
+  await removeCssAndUpdateStorage(tabId);
+};
+
+// When clicked or on load, retrieve the extension active state from storage,
+// then run extension scripts.
+const runExtensionScripts = async (tabId) => {
+  console.log('injecting CSS');
+  await insertCssAndUpdateStorage(tabId);
+  await chrome.scripting.executeScript({
+    files: [
+      'scripts/content-autoplay.js',
+      'scripts/content-miniplayer.js',
+      'scripts/content-end_mode.js',
+    ],
+    target: {tabId},
+  });
+};
+
+const getCurrentTab = async () => {
+  return await chrome.tabs.query({active: true, lastFocusedWindow: true});
 };
 
 const getIsExtensionActive = async () => {
@@ -96,11 +99,14 @@ const detectIsTabYoutube = async (url) => {
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('onInstalled running');
 
+  // Reset tabs with CSS injected to default value
+  await chrome.storage.sync.set({tabsWithCssInjected: {}});
+
   // On load, check the active state of the chrome extension
   // If there's no active state yet, then set it to false.
   const isExtensionActive = await getIsExtensionActive();
   if (isExtensionActive === undefined) {
-    chrome.storage.sync.set({isExtensionActive: false});
+    await chrome.storage.sync.set({isExtensionActive: false});
   }
 
   const isTabYoutube = await detectIsTabYoutube();
@@ -109,7 +115,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (isExtensionActive && isTabYoutube) {
     const [currentTab] = await getCurrentTab();
     console.log('currentTab', currentTab);
-    await runExtensionScripts(currentTab.id, isExtensionActive);
+    await runExtensionScripts(currentTab.id);
   }
 });
 
@@ -123,7 +129,7 @@ chrome.tabs.onActivated.addListener(async (activeTabInfo) => {
   await handleBadgeUpdate(isExtensionActive, isTabYoutube);
 
   if (isExtensionActive && isTabYoutube) {
-    await runExtensionScripts(activeTabInfo.tabId, isExtensionActive);
+    await runExtensionScripts(activeTabInfo.tabId);
   }
 });
 
@@ -138,7 +144,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       await handleBadgeUpdate(isExtensionActive, isTabYoutube);
 
       if (isExtensionActive) {
-        await runExtensionScripts(tabId, isExtensionActive);
+        await runExtensionScripts(tabId);
       }
     }
   }

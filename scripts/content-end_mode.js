@@ -26,4 +26,11 @@
 
   // Start observing the target node for configured mutations
   observer.observe(endScreenObserveEl, observedMutations);
+
+  // Cleanup
+  chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
+    if (request.shouldCleanup) {
+      observer.disconnect();
+    }
+  });
 })();
