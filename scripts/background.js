@@ -43,11 +43,7 @@ const runExtensionScripts = async (tabId) => {
   await insertCssAndUpdateStorage(tabId);
   await chrome.scripting.executeScript({
     target: {tabId},
-    files: [
-      'scripts/content-autoplay.js',
-      'scripts/content-miniplayer.js',
-      'scripts/content-end_mode.js',
-    ],
+    files: ['scripts/content-autoplay.js', 'scripts/content-miniplayer.js'],
   });
 };
 

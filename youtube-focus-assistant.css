@@ -9,3 +9,7 @@ body ytd-comments#comments {
 body div#secondary {
   visibility: hidden;
 }
+
+body .html5-endscreen {
+  display: none;
+}
