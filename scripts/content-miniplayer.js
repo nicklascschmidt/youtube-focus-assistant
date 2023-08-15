@@ -15,10 +15,12 @@
   const updatePageStylingFromMiniplayer = (el) => {
     const isMiniplayerActive = el.getAttribute(MINIPLAYER_IS_ACTIVE_ATTRIBUTE) === '';
     const youtubePageContent = document.querySelector('ytd-page-manager#page-manager');
-    if (isMiniplayerActive) {
-      youtubePageContent.style.display = 'none';
-    } else {
-      youtubePageContent.style.display = 'flex';
+    if (youtubePageContent) {
+      if (isMiniplayerActive) {
+        youtubePageContent.style.display = 'none';
+      } else {
+        youtubePageContent.style.display = 'flex';
+      }
     }
   };
 

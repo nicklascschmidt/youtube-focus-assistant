@@ -23,7 +23,7 @@
     "type": "module"
   },
   "permissions": ["tabs", "scripting", "storage"],
-  "host_permissions": ["*://*.youtube.com/"],
+  "host_permissions": ["*://*.youtube.com/*"],
   "commands": {
     "_execute_action": {
       "suggested_key": {
